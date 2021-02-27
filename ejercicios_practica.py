@@ -15,6 +15,9 @@ __author__ = "Inove Coding School"
 __email__ = "alumnos@inove.com.ar"
 __version__ = "1.1"
 
+
+import os
+import csv
 import sqlite3
 
 import sqlalchemy
@@ -26,6 +29,15 @@ from sqlalchemy.orm import sessionmaker, relationship
 engine = sqlalchemy.create_engine("sqlite:///secundaria.db")
 base = declarative_base()
 session = sessionmaker(bind=engine)()
+
+from config import config
+
+# Obtener la path de ejecución actual del script
+script_path = os.path.dirname(os.path.realpath(__file__))
+
+# Obtener los parámetros del archivo de configuración
+config_path_name = os.path.join(script_path, 'config.ini')
+dataset = config('dataset', config_path_name)
 
 
 class Tutor(base):
@@ -60,6 +72,43 @@ def create_schema():
     base.metadata.create_all(engine)
 
 
+def insert_tutor(name):
+    # Crear la session
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    # Crear una nueva nacionalidad
+    tutor = Tutor(name=name)
+
+    # Agregar la nacionalidad a la DB
+    session.add(tutor)
+    session.commit()
+
+def insert_estudiante(name, age, grade, tutor):
+     # Crear la session
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    # Buscar la nacionalidada nueva nacionalidad
+    query = session.query(Tutor).filter(Tutor.name == tutor)
+    tutor = query.first()
+
+    if tutor is None:
+        # Podrá ver en este ejemplo que sucederá este error con la persona
+        # de nacionalidad Inglaterra ya que no está definida en el archivo
+        # de nacinoalidades
+        print(f"Error no existe el Tutor {name}")
+        return
+
+    # Crear la persona
+    student = Estudiante(name=name, age=age, grade=grade)
+    student.tutor = tutor
+
+    # Agregar la persona a la DB
+    session.add(student)
+    session.commit()
+
+
 def fill():
     print('Completemos esta tablita!')
     # Llenar la tabla de la secundaria con al munos 2 tutores
@@ -78,6 +127,23 @@ def fill():
     # No olvidarse que antes de poder crear un estudiante debe haberse
     # primero creado el tutor.
 
+    # Insertar el archivo CSV de nacionalidades
+    # Insertar fila a fila
+    with open(dataset['tutores']) as fi:
+        data = list(csv.DictReader(fi))
+
+        for row in data:
+            insert_tutor(row['tutores'])
+
+    # Insertar el archivo CSV de personas
+    # Insertar todas las filas juntas
+    with open(dataset['student']) as fi:
+        data = list(csv.DictReader(fi))
+
+        for row in data:
+            insert_estudiante(row['name'], int(row['age']), int(row['grade']), row['tutor_id'])
+    
+
 
 def fetch():
     print('Comprovemos su contenido, ¿qué hay en la tabla?')
@@ -85,6 +151,21 @@ def fetch():
     # todos los objetos creaods de la tabla estudiante.
     # Imprimir en pantalla cada objeto que traiga la query
     # Realizar un bucle para imprimir de una fila a la vez
+
+    # Crear la session
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    # Buscar todas las personas
+    query = session.query(Estudiante).order_by(Estudiante.age.desc())
+
+    # Si está definido el limite aplicarlo
+    #if limit > 0:
+      #  query = query.limit(limit)
+
+    # Leer una persona a la vez e imprimir en pantalla
+    for estudiante in query:
+        print(estudiante)
 
 
 def search_by_tutor(tutor):
@@ -97,6 +178,12 @@ def search_by_tutor(tutor):
     # deberá crear la query para la tabla estudiante pero
     # buscar por la propiedad de tutor.name
 
+    # Crear la session
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    result = session.query(Estudiante).join(Estudiante.tutor).filter(Tutor.name == tutor)
+    print('Personas del tutor', tutor, 'encontradas:', result)
 
 def modify(id, name):
     print('Modificando la tabla')
@@ -110,6 +197,28 @@ def modify(id, name):
 
     # TIP: En clase se hizo lo mismo para las nacionalidades con
     # en la función update_persona_nationality
+    # Crear la session
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    # Buscar la nacionalidada que se desea actualizar
+    query = session.query(Tutor).filter(Tutor.name == name)
+    director = query.first()
+
+    # Buscar la persona que se desea actualizar
+    query = session.query(Estudiante).filter(Estudiante.id == id)
+    student = query.first()
+
+    # Actualizar la persona con el tutor
+    student.director = director
+
+    # Aunque la persona ya existe, como el id coincide
+    # se actualiza sin generar una nueva entrada en la DB
+    session.add(student)
+    session.commit()
+
+    print('Persona actualizada', name)
+
 
 
 def count_grade(grade):
@@ -120,20 +229,26 @@ def count_grade(grade):
 
     # TIP: En clase se hizo lo mismo para las nacionalidades con
     # en la función count_persona
+     # Crear la session
+    Session = sessionmaker(bind=engine)
+    session = Session()
+
+    result = session.query(Estudiante).filter(Estudiante.grade == grade).count()
+    print('Las personas encontradas son', result)
 
 
 if __name__ == '__main__':
     print("Bienvenidos a otra clase de Inove con Python")
     create_schema()   # create and reset database (DB)
-    # fill()
-    # fetch()
+    fill()
+    fetch()
 
-    tutor = 'nombre_tutor'
-    # search_by_tutor(tutor)
+    tutor = 'Pedro'
+    search_by_tutor(tutor)
 
     nuevo_tutor = 'nombre_tutor'
     id = 2
-    # modify(id, nuevo_tutor)
+    modify(id, nuevo_tutor)
 
     grade = 2
-    # count_grade(grade)
+    count_grade(grade)
