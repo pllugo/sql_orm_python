@@ -182,8 +182,14 @@ def search_by_tutor(tutor):
     Session = sessionmaker(bind=engine)
     session = Session()
 
-    result = session.query(Estudiante).join(Estudiante.tutor).filter(Tutor.name == tutor)
-    print('Personas del tutor', tutor, 'encontradas:', result)
+     # Buscar el tutor en la base de datos
+    result = session.query(Estudiante).join(Estudiante.tutor).filter(Tutor.name == tutor).count()
+    
+    
+    if result == 0:
+        print(f"Error no existe el tutor {tutor} en la base de datos")
+    else:
+        print('Personas del tutor:', tutor, 'encontradas es:', result)
 
 def modify(id, name):
     print('Modificando la tabla')
@@ -203,14 +209,14 @@ def modify(id, name):
 
     # Buscar la nacionalidada que se desea actualizar
     query = session.query(Tutor).filter(Tutor.name == name)
-    director = query.first()
+    tutor = query.first()
 
     # Buscar la persona que se desea actualizar
     query = session.query(Estudiante).filter(Estudiante.id == id)
     student = query.first()
 
     # Actualizar la persona con el tutor
-    student.director = director
+    student.tutor = tutor
 
     # Aunque la persona ya existe, como el id coincide
     # se actualiza sin generar una nueva entrada en la DB
@@ -234,7 +240,10 @@ def count_grade(grade):
     session = Session()
 
     result = session.query(Estudiante).filter(Estudiante.grade == grade).count()
-    print('Las personas encontradas son', result)
+    if result == 0:
+        print(f"Error no existe el grado {grade} en la base de datos")
+    else:
+        print('Las personas encontradas son', result)
 
 
 if __name__ == '__main__':
@@ -243,12 +252,13 @@ if __name__ == '__main__':
     fill()
     fetch()
 
-    tutor = 'Pedro'
+    tutor = str(input('Ingrese el tutor a buscar:\n'))
     search_by_tutor(tutor)
 
-    nuevo_tutor = 'nombre_tutor'
-    id = 2
+    nuevo_tutor = str(input('Ingrese el tutor a actualizar:\n'))
+    id = int(input('Ingrese el id:\n'))
     modify(id, nuevo_tutor)
+    fetch()
 
-    grade = 2
+    grade = int(input('Ingrese el grado que desee buscar:\n'))
     count_grade(grade)
